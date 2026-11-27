@@ -186,9 +186,10 @@ mapfile -t BOOT_ARGS < <(
     | sed "s/^'//; s/'$//"
 )
 
-# Ejecutar xorriso preservando exactamente MBR + partición EFI GPT + El Torito
+# Ejecutar xorriso preservando exactamente MBR + partición EFI GPT + El Torito (-iso-level 3 permite filesystem.squashfs > 4 GiB)
 eval xorriso -as mkisofs \
-  -r -V "'LFA-AI-OS-1.0.0'" \
+  -iso-level 3 \
+  -r -V "'LFA_AI_OS_1_0'" \
   -o "'$OUT_ISO'" \
   "$(xorriso -indev "$BASE_ISO" -report_el_torito as_mkisofs 2>/dev/null | grep -v '^-V ' | tr '\n' ' ')" \
   "'$WORK/iso'"
