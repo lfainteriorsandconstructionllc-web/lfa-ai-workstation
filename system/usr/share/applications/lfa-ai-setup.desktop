@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=LFA AI Workstation Setup
+Name[es]=Asistente LFA AI Workstation
+Comment=Install official AI coding agents and apply LFA Dorado theme
+Comment[es]=Instala herramientas oficiales de IA y aplica el tema LFA Dorado
+Exec=/usr/bin/lfa-ai-setup
+Icon=preferences-system
+Terminal=false
+Categories=System;Settings;

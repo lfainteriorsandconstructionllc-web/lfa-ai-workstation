@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Aplica el tema LFA Dorado 1.3 y registra el fondo dinámico LFA Living Landscapes 0.6.4
+set -euo pipefail
+
+if command -v plasma-apply-lookandfeel >/dev/null 2>&1; then
+  echo "Aplicando tema global LFA Dorado (org.lfa.dorado)..."
+  plasma-apply-lookandfeel -a org.lfa.dorado || true
+fi
+
+if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
+  plasma-apply-colorscheme LFADorado || true
+fi
+
+if command -v plasma-apply-desktoptheme >/dev/null 2>&1; then
+  plasma-apply-desktoptheme LFA-Plasma || true
+fi
+
+echo "Tema LFA Dorado aplicado. Puedes activar 'LFA Living Landscapes' en:"
+echo "  Clic derecho en el escritorio -> Configurar escritorio y fondo de pantalla -> Tipo de fondo: LFA Living Landscapes"

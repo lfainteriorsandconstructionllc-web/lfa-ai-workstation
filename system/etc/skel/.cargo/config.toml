@@ -1,0 +1,3 @@
+# LFA AI Workstation — Deja núcleos libres para el escritorio y otros agentes durante builds Rust
+[build]
+jobs = 6

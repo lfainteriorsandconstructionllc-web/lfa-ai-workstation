@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LFA AI Workstation First-Run Setup
+Exec=/usr/bin/lfa-ai-setup --autostart
+Icon=preferences-system
+Terminal=false
+X-KDE-autostart-condition=true
+OnlyShowIn=KDE;

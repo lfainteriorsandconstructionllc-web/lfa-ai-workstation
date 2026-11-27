@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  configure)
+    # Apply sysctl tuning (safe inside chroot/Cubic too)
+    if [[ -d /run/systemd/system ]]; then
+      sysctl --system >/dev/null 2>&1 || true
+      systemctl daemon-reload >/dev/null 2>&1 || true
+      systemctl restart systemd-zram-setup@zram0.service >/dev/null 2>&1 || true
+      systemctl enable --now systemd-oomd.service >/dev/null 2>&1 || true
+    else
+      # Inside Cubic chroot (no live systemd): enable services for first boot
+      systemctl enable systemd-oomd.service >/dev/null 2>&1 || true
+    fi
+
+    # Refresh icon & desktop caches
+    if command -v gtk-update-icon-cache >/dev/null 2>&1 && [[ -d /usr/share/icons/LFA ]]; then
+      gtk-update-icon-cache -f -t /usr/share/icons/LFA >/dev/null 2>&1 || true
+    fi
+    if command -v update-desktop-database >/dev/null 2>&1; then
+      update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+    fi
+    ;;
+esac
+
+exit 0
