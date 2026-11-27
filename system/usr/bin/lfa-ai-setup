@@ -88,6 +88,13 @@ TOOLS = [
         f"pkexec bash -c 'apt-get update -qq && apt-get install -y docker.io docker-compose-v2 && usermod -aG docker {os.environ.get('USER', '')}'",
     ),
     (
+        "kaichat",
+        "KAIChat (cliente oficial de IA de KDE vía Flathub)",
+        "Instala org.kde.kaichat (Qt6/Kirigami, soporta Ollama, OpenAI, Claude, Groq y MCP).",
+        False,
+        "flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo && flatpak install -y --user flathub org.kde.kaichat",
+    ),
+    (
         "ollama",
         "Ollama (opcional — modelos locales)",
         "Instalador oficial desde ollama.com para ejecutar LLMs locales.",

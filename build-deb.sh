@@ -44,10 +44,11 @@ cp "$ROOT/debian/postinst" "$STAGE/DEBIAN/postinst"
 cp "$ROOT/debian/prerm" "$STAGE/DEBIAN/prerm"
 
 chmod 0755 "$STAGE/DEBIAN/postinst" "$STAGE/DEBIAN/prerm"
-chmod 0755 "$STAGE/usr/bin/lfa-ai-setup" "$STAGE/usr/bin/lfa-apply-theme"
+chmod 0755 "$STAGE/usr/bin/lfa-ai-setup" "$STAGE/usr/bin/lfa-ai-assistant" "$STAGE/usr/bin/lfa-apply-theme"
 chmod 0644 "$STAGE/etc/systemd/zram-generator.conf"
 chmod 0644 "$STAGE/etc/sysctl.d/99-lfa-ai-workstation.conf"
-chmod 0644 "$STAGE/usr/share/applications/lfa-ai-setup.desktop"
+chmod 0644 "$STAGE/usr/share/applications/lfa-ai-setup.desktop" "$STAGE/usr/share/applications/lfa-ai-assistant.desktop"
+chmod 0755 "$STAGE/etc/skel/Desktop/lfa-ai-assistant.desktop"
 chmod 0644 "$STAGE/etc/skel/.config/autostart/lfa-ai-setup.desktop"
 chmod 0644 "$STAGE/etc/skel/.gradle/gradle.properties" "$STAGE/etc/skel/.cargo/config.toml"
 

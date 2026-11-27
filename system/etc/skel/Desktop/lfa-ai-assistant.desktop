@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=LFA AI Assistant
+Name[es]=Asistente IA LFA
+Comment=Native AI assistant for LFA AI OS
+Exec=/usr/bin/lfa-ai-assistant
+Icon=lfa-ai-assistant
+Terminal=false
+Categories=Utility;Network;Development;

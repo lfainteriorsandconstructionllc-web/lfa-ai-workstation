@@ -1,0 +1,466 @@
+#!/usr/bin/env python3
+"""
+LFA AI Assistant — Native PyQt6 AI Assistant for LFA AI OS / KDE Plasma 6.
+Supports free cloud tiers (Google Gemini, Groq, OpenRouter) and local Ollama.
+License: GPL-3.0-or-later
+"""
+
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTextBrowser,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
+CONFIG_DIR = Path.home() / ".config" / "lfa-ai-assistant"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+HISTORY_DIR = Path.home() / ".local" / "share" / "lfa-ai-assistant"
+HISTORY_FILE = HISTORY_DIR / "history.json"
+
+PROVIDERS = {
+    "Google Gemini (Gratis)": {
+        "type": "gemini",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        "default_model": "gemini-2.5-flash",
+        "hint": "API Key gratis en https://aistudio.google.com/apikey",
+    },
+    "Groq (Gratis)": {
+        "type": "openai",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "default_model": "llama-3.3-70b-versatile",
+        "hint": "API Key gratis en https://console.groq.com/keys",
+    },
+    "OpenRouter (Modelos :free)": {
+        "type": "openai",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "default_model": "openrouter/free",
+        "hint": "API Key gratis en https://openrouter.ai/keys",
+    },
+    "Ollama (Local / Sin conexión)": {
+        "type": "ollama",
+        "url": "http://127.0.0.1:11434/api/chat",
+        "default_model": "llama3.2",
+        "hint": "Sin clave API. Requiere Ollama ejecutándose en local.",
+    },
+}
+
+STYLESHEET = """
+QWidget {
+    background-color: #1a2026;
+    color: #e8ecf0;
+    font-family: "Noto Sans", "Segoe UI", sans-serif;
+    font-size: 13px;
+}
+QLabel#brand {
+    color: #d4af37;
+    font-size: 18px;
+    font-weight: 700;
+}
+QLabel#sub {
+    color: #9aa7b4;
+    font-size: 12px;
+}
+QTextBrowser {
+    background-color: #14191e;
+    border: 1px solid #2e3944;
+    border-radius: 10px;
+    padding: 12px;
+    color: #e8ecf0;
+    font-size: 14px;
+}
+QTextEdit, QLineEdit, QComboBox {
+    background-color: #232b33;
+    border: 1px solid #394654;
+    border-radius: 8px;
+    padding: 8px;
+    color: #f0f4f8;
+}
+QTextEdit:focus, QLineEdit:focus {
+    border: 1px solid #d4af37;
+}
+QPushButton {
+    background-color: #29333d;
+    border: 1px solid #445363;
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: #f0f4f8;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background-color: #34414e;
+}
+QPushButton#primary {
+    background-color: #c9a227;
+    border: 1px solid #e3c25b;
+    color: #14181d;
+}
+QPushButton#primary:hover {
+    background-color: #dcb53a;
+}
+"""
+
+
+def load_config():
+    if CONFIG_FILE.exists():
+        try:
+            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {
+        "provider": "Google Gemini (Gratis)",
+        "model": "gemini-2.5-flash",
+        "api_key": "",
+        "system_prompt": "Eres LFA AI Assistant, un asistente integrado en LFA AI OS (KDE Plasma 6). Responde de forma clara, precisa y útil.",
+    }
+
+
+def save_config(cfg):
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.chmod(CONFIG_FILE, 0o600)
+
+
+class ApiWorker(QThread):
+    finished_ok = pyqtSignal(str)
+    finished_err = pyqtSignal(str)
+
+    def __init__(self, cfg, messages):
+        super().__init__()
+        self.cfg = cfg
+        self.messages = messages
+
+    def run(self):
+        try:
+            prov_name = self.cfg.get("provider", "Google Gemini (Gratis)")
+            prov = PROVIDERS.get(prov_name, PROVIDERS["Google Gemini (Gratis)"])
+            ptype = prov["type"]
+            model = (self.cfg.get("model") or prov["default_model"]).strip()
+            api_key = (self.cfg.get("api_key") or "").strip()
+            sys_prompt = self.cfg.get("system_prompt", "")
+
+            if ptype in ("gemini", "openai") and not api_key:
+                self.finished_err.emit(
+                    f"Falta la API Key para {prov_name}.\nHaz clic en 'Configurar' para pegarla ({prov['hint']})."
+                )
+                return
+
+            if ptype == "gemini":
+                url = prov["url"].format(model=model) + f"?key={api_key}"
+                contents = []
+                for m in self.messages:
+                    role = "user" if m["role"] == "user" else "model"
+                    contents.append({"role": role, "parts": [{"text": m["content"]}]})
+                payload = {"contents": contents}
+                if sys_prompt:
+                    payload["systemInstruction"] = {"parts": [{"text": sys_prompt}]}
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                parts = data["candidates"][0]["content"]["parts"]
+                reply = "".join(p.get("text", "") for p in parts)
+                self.finished_ok.emit(reply)
+                return
+
+            if ptype == "openai":
+                msgs = []
+                if sys_prompt:
+                    msgs.append({"role": "system", "content": sys_prompt})
+                msgs.extend(self.messages)
+                payload = {"model": model, "messages": msgs}
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                }
+                req = urllib.request.Request(
+                    prov["url"],
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                )
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                reply = data["choices"][0]["message"]["content"]
+                self.finished_ok.emit(reply)
+                return
+
+            if ptype == "ollama":
+                msgs = []
+                if sys_prompt:
+                    msgs.append({"role": "system", "content": sys_prompt})
+                msgs.extend(self.messages)
+                payload = {"model": model, "messages": msgs, "stream": False}
+                req = urllib.request.Request(
+                    prov["url"],
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=180) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                reply = data["message"]["content"]
+                self.finished_ok.emit(reply)
+                return
+
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")[:400]
+            self.finished_err.emit(f"Error HTTP {e.code}: {body}")
+        except Exception as e:
+            self.finished_err.emit(f"Error de conexión: {e}")
+
+
+class SettingsDialog(QDialog):
+    def __init__(self, cfg, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Configurar LFA AI Assistant")
+        self.resize(500, 290)
+        self.setStyleSheet(STYLESHEET)
+        self.cfg = dict(cfg)
+
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+
+        self.prov_combo = QComboBox()
+        self.prov_combo.addItems(list(PROVIDERS.keys()))
+        idx = self.prov_combo.findText(self.cfg.get("provider", ""))
+        if idx >= 0:
+            self.prov_combo.setCurrentIndex(idx)
+        self.prov_combo.currentTextChanged.connect(self.on_provider_change)
+
+        self.model_edit = QLineEdit(self.cfg.get("model", ""))
+        self.key_edit = QLineEdit(self.cfg.get("api_key", ""))
+        self.key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.hint_label = QLabel()
+        self.hint_label.setObjectName("sub")
+        self.hint_label.setWordWrap(True)
+
+        form.addRow("Proveedor:", self.prov_combo)
+        form.addRow("Modelo:", self.model_edit)
+        form.addRow("API Key:", self.key_edit)
+        form.addRow("", self.hint_label)
+        layout.addLayout(form)
+
+        btns = QHBoxLayout()
+        btns.addStretch(1)
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.clicked.connect(self.reject)
+        save_btn = QPushButton("Guardar")
+        save_btn.setObjectName("primary")
+        save_btn.clicked.connect(self.accept)
+        btns.addWidget(cancel_btn)
+        btns.addWidget(save_btn)
+        layout.addLayout(btns)
+
+        self.on_provider_change(self.prov_combo.currentText(), keep_model=True)
+
+    def on_provider_change(self, name, keep_model=False):
+        p = PROVIDERS[name]
+        self.hint_label.setText(p["hint"])
+        if not keep_model:
+            self.model_edit.setText(p["default_model"])
+
+    def result_config(self):
+        self.cfg["provider"] = self.prov_combo.currentText()
+        self.cfg["model"] = self.model_edit.text().strip() or PROVIDERS[self.cfg["provider"]]["default_model"]
+        self.cfg["api_key"] = self.key_edit.text().strip()
+        return self.cfg
+
+
+class AssistantWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.cfg = load_config()
+        self.messages = self.load_history()
+        self.worker = None
+
+        self.setWindowTitle("LFA AI Assistant")
+        self.resize(780, 640)
+        self.setStyleSheet(STYLESHEET)
+        icon_path = "/usr/share/icons/hicolor/256x256/apps/lfa-ai-assistant.png"
+        if not os.path.exists(icon_path):
+            icon_path = str(Path.home() / ".local/share/icons/hicolor/256x256/apps/lfa-ai-assistant.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(16, 14, 16, 14)
+        root.setSpacing(10)
+
+        header = QHBoxLayout()
+        title_box = QVBoxLayout()
+        lbl = QLabel("LFA AI Assistant")
+        lbl.setObjectName("brand")
+        self.status_lbl = QLabel()
+        self.status_lbl.setObjectName("sub")
+        title_box.addWidget(lbl)
+        title_box.addWidget(self.status_lbl)
+        header.addLayout(title_box)
+        header.addStretch(1)
+
+        clear_btn = QPushButton("Limpiar")
+        clear_btn.clicked.connect(self.clear_chat)
+        copy_btn = QPushButton("Copiar última")
+        copy_btn.clicked.connect(self.copy_last)
+        cfg_btn = QPushButton("Configurar")
+        cfg_btn.clicked.connect(self.open_settings)
+        header.addWidget(clear_btn)
+        header.addWidget(copy_btn)
+        header.addWidget(cfg_btn)
+        root.addLayout(header)
+
+        self.chat = QTextBrowser()
+        self.chat.setOpenExternalLinks(True)
+        root.addWidget(self.chat, stretch=1)
+
+        input_row = QHBoxLayout()
+        self.prompt = QTextEdit()
+        self.prompt.setFixedHeight(78)
+        self.prompt.setPlaceholderText("Escribe tu pregunta... (Ctrl+Enter para enviar)")
+        self.prompt.installEventFilter(self)
+
+        self.send_btn = QPushButton("Enviar")
+        self.send_btn.setObjectName("primary")
+        self.send_btn.setFixedHeight(78)
+        self.send_btn.setFixedWidth(100)
+        self.send_btn.clicked.connect(self.send_message)
+        input_row.addWidget(self.prompt, stretch=1)
+        input_row.addWidget(self.send_btn)
+        root.addLayout(input_row)
+
+        self.refresh_status()
+        self.render_messages()
+
+    def eventFilter(self, obj, event):
+        if obj is self.prompt and event.type() == event.Type.KeyPress:
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and (
+                event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            ):
+                self.send_message()
+                return True
+        return super().eventFilter(obj, event)
+
+    def refresh_status(self):
+        self.status_lbl.setText(f"{self.cfg.get('provider')} · {self.cfg.get('model')}")
+
+    def load_history(self):
+        if HISTORY_FILE.exists():
+            try:
+                return json.loads(HISTORY_FILE.read_text(encoding="utf-8"))[-40:]
+            except Exception:
+                pass
+        return []
+
+    def save_history(self):
+        HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+        HISTORY_FILE.write_text(json.dumps(self.messages[-40:], indent=2, ensure_ascii=False), encoding="utf-8")
+
+    def render_messages(self):
+        if not self.messages:
+            self.chat.setHtml(
+                "<div style='color:#9aa7b4; padding:12px;'>"
+                "<b style='color:#d4af37;'>Bienvenido a LFA AI Assistant.</b><br><br>"
+                "Haz clic en <b>Configurar</b> para conectar una clave gratuita (Google Gemini, Groq u OpenRouter) "
+                "o usar <b>Ollama</b> en local sin conexión."
+                "</div>"
+            )
+            return
+        html_parts = []
+        for m in self.messages:
+            safe = (
+                m["content"]
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\n", "<br>")
+            )
+            if m["role"] == "user":
+                html_parts.append(
+                    f"<div style='margin:8px 0; padding:10px 12px; background:#242e38; border-left:3px solid #d4af37; border-radius:6px;'>"
+                    f"<b style='color:#d4af37;'>Tú</b><br>{safe}</div>"
+                )
+            else:
+                html_parts.append(
+                    f"<div style='margin:8px 0; padding:10px 12px; background:#1c242c; border-left:3px solid #7f9bb3; border-radius:6px;'>"
+                    f"<b style='color:#e8c967;'>LFA AI</b><br>{safe}</div>"
+                )
+        self.chat.setHtml("".join(html_parts))
+        sb = self.chat.verticalScrollBar()
+        sb.setValue(sb.maximum())
+
+    def send_message(self):
+        text = self.prompt.toPlainText().strip()
+        if not text or self.worker is not None:
+            return
+        self.prompt.clear()
+        self.messages.append({"role": "user", "content": text})
+        self.render_messages()
+        self.send_btn.setEnabled(False)
+        self.status_lbl.setText("Pensando...")
+
+        self.worker = ApiWorker(self.cfg, self.messages)
+        self.worker.finished_ok.connect(self.on_reply)
+        self.worker.finished_err.connect(self.on_error)
+        self.worker.start()
+
+    def on_reply(self, reply):
+        self.worker = None
+        self.send_btn.setEnabled(True)
+        self.refresh_status()
+        self.messages.append({"role": "assistant", "content": reply})
+        self.save_history()
+        self.render_messages()
+
+    def on_error(self, err):
+        self.worker = None
+        self.send_btn.setEnabled(True)
+        self.refresh_status()
+        QMessageBox.warning(self, "LFA AI Assistant", err)
+
+    def clear_chat(self):
+        self.messages = []
+        self.save_history()
+        self.render_messages()
+
+    def copy_last(self):
+        for m in reversed(self.messages):
+            if m["role"] == "assistant":
+                QApplication.clipboard().setText(m["content"])
+                return
+
+    def open_settings(self):
+        dlg = SettingsDialog(self.cfg, self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.cfg = dlg.result_config()
+            save_config(self.cfg)
+            self.refresh_status()
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setFont(QFont("Noto Sans", 10))
+    win = AssistantWindow()
+    win.show()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

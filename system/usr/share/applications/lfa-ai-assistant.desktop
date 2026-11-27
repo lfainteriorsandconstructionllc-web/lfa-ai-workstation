@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=LFA AI Assistant
+Name[es]=Asistente IA LFA
+Comment=Native AI assistant for LFA AI OS (Gemini, Groq, OpenRouter & local Ollama)
+Comment[es]=Asistente IA nativo para LFA AI OS (Gemini, Groq, OpenRouter y Ollama local)
+Exec=/usr/bin/lfa-ai-assistant
+Icon=lfa-ai-assistant
+Terminal=false
+Categories=Utility;Network;Development;
+StartupWMClass=lfa-ai-assistant
