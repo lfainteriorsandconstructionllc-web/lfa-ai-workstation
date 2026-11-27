@@ -1,5 +1,7 @@
 build/
 dist/
+iso-base/
 *.deb
+*.iso
 __pycache__/
 *.pyc
