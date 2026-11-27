@@ -1,10 +1,28 @@
 #!/usr/bin/env bash
-# Aplica el tema LFA Dorado 1.3 y registra el fondo dinámico LFA Living Landscapes 0.6.4
+# Aplica el tema global LFA Dorado 1.3 (con dock flotante + LFA AI Assistant)
+# y activa automáticamente el fondo dinámico LFA Living Landscapes 0.6.4.
 set -euo pipefail
 
+MARKER="$HOME/.config/lfa-theme-applied.done"
+FIRST_BOOT=0
+if [[ "${1:-}" == "--first-boot" ]]; then
+  FIRST_BOOT=1
+  if [[ -f "$MARKER" ]]; then
+    exit 0
+  fi
+fi
+
+# Esperar a que plasmashell esté listo en D-Bus (especialmente en el primer arranque Live)
+for _ in $(seq 1 30); do
+  if command -v qdbus6 >/dev/null 2>&1 && qdbus6 org.kde.plasmashell /PlasmaShell >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
 if command -v plasma-apply-lookandfeel >/dev/null 2>&1; then
-  echo "Aplicando tema global LFA Dorado (org.lfa.dorado)..."
-  plasma-apply-lookandfeel -a org.lfa.dorado || true
+  echo "Aplicando tema global LFA Dorado (org.lfa.dorado) con diseño de dock..."
+  plasma-apply-lookandfeel -a org.lfa.dorado --resetLayout || plasma-apply-lookandfeel -a org.lfa.dorado || true
 fi
 
 if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
@@ -15,5 +33,21 @@ if command -v plasma-apply-desktoptheme >/dev/null 2>&1; then
   plasma-apply-desktoptheme LFA-Plasma || true
 fi
 
-echo "Tema LFA Dorado aplicado. Puedes activar 'LFA Living Landscapes' en:"
-echo "  Clic derecho en el escritorio -> Configurar escritorio y fondo de pantalla -> Tipo de fondo: LFA Living Landscapes"
+# Activar explícitamente el fondo en vivo LFA Living Landscapes (org.lfa.weatherlandscape) en todos los escritorios
+if command -v qdbus6 >/dev/null 2>&1; then
+  echo "Activando fondo dinámico LFA Living Landscapes (org.lfa.weatherlandscape)..."
+  qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '
+    var allDesktops = desktops();
+    for (var i = 0; i < allDesktops.length; i++) {
+      var d = allDesktops[i];
+      d.wallpaperPlugin = "org.lfa.weatherlandscape";
+      d.currentConfigGroup = ["Wallpaper", "org.lfa.weatherlandscape", "General"];
+      d.writeConfig("sceneMode", "auto");
+      d.writeConfig("dailyRotation", true);
+    }
+  ' || true
+fi
+
+mkdir -p "$(dirname "$MARKER")"
+date > "$MARKER"
+echo "✓ LFA Dorado 1.3 + LFA Living Landscapes 0.6.4 aplicados correctamente."

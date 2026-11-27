@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Construye LFA-AI-OS-1.0.0-amd64.iso (híbrida UEFI + BIOS) de forma 100% desatendida
-# a partir de la ISO oficial kubuntu-26.04.1-desktop-amd64.iso y lfa-ai-workstation_1.0.0_all.deb
+# Construye LFA-AI-OS-1.0.0-amd64.iso (híbrida UEFI + BIOS) con branding completo
+# de arranque a escritorio (GRUB + Plymouth + SDDM + Plasma + LFA Living Landscapes + LFA AI Assistant)
 set -euo pipefail
 
 if [[ "${EUID}" -ne 0 ]]; then
@@ -61,34 +61,18 @@ rsync -a "$WORK/mnt/" "$WORK/iso/"
 umount "$WORK/mnt"
 chmod -R u+w "$WORK/iso"
 
-TARGET_SQFS=""
-for candidate in \
-  "$WORK/iso/casper/filesystem.squashfs" \
-  "$WORK/iso/casper/minimal.standard.squashfs" \
-  "$WORK/iso/casper/minimal.desktop.squashfs"; do
-  if [[ -f "$candidate" ]]; then
-    TARGET_SQFS="$candidate"
-    break
-  fi
-done
-
-if [[ -z "$TARGET_SQFS" ]]; then
+TARGET_SQFS="$WORK/iso/casper/filesystem.squashfs"
+if [[ ! -f "$TARGET_SQFS" ]]; then
   TARGET_SQFS="$(find "$WORK/iso/casper" -maxdepth 1 -name '*.squashfs' -printf '%s %p\n' | sort -nr | head -n1 | awk '{print $2}')"
-fi
-
-if [[ -z "$TARGET_SQFS" || ! -f "$TARGET_SQFS" ]]; then
-  echo "ERROR: No se encontró ningún archivo .squashfs en casper/"
-  exit 1
 fi
 echo "    Capa squashfs detectada: $(basename "$TARGET_SQFS")"
 
 echo "==> 3/7 Desempaquetando sistema de archivos raíz..."
 unsquashfs -q -d "$WORK/squashfs" "$TARGET_SQFS"
 
-echo "==> 4/7 Instalando lfa-ai-workstation_1.0.0_all.deb dentro del chroot..."
+echo "==> 4/7 Instalando LFA AI OS completo dentro del chroot (paquete, Plymouth, SDDM, Plasma defaults)..."
 cp "$DEB_PKG" "$WORK/squashfs/tmp/lfa-ai-workstation.deb"
 
-# DNS público temporal dentro del chroot (evita stub 127.0.0.53)
 RESOLV_BAK=""
 if [[ -e "$WORK/squashfs/etc/resolv.conf" || -L "$WORK/squashfs/etc/resolv.conf" ]]; then
   mv "$WORK/squashfs/etc/resolv.conf" "$WORK/squashfs/etc/resolv.conf.lfabak"
@@ -99,7 +83,6 @@ nameserver 1.1.1.1
 nameserver 8.8.8.8
 EOF
 
-# Respaldar sources.list.d original (la ISO solo trae file:///cdrom) y habilitar repos Ubuntu online temporalmente
 mv "$WORK/squashfs/etc/apt/sources.list.d" "$WORK/squashfs/etc/apt/sources.list.d.lfabak"
 mkdir -p "$WORK/squashfs/etc/apt/sources.list.d"
 cat > "$WORK/squashfs/etc/apt/sources.list.d/lfa-temp-ubuntu.sources" <<'EOF'
@@ -122,9 +105,14 @@ chroot "$WORK/squashfs" /bin/bash -euo pipefail -c '
   apt-get install -y /tmp/lfa-ai-workstation.deb
   rm -f /tmp/lfa-ai-workstation.deb
 
-  # Establecer LFA Dorado como tema por defecto en /etc/skel para usuarios nuevos
-  mkdir -p /etc/skel/.config
-  cat > /etc/skel/.config/kdeglobals <<EOF
+  # 1. Identidad del sistema (conserva ID=ubuntu para 100% compatibilidad de paquetes/drivers)
+  sed -i '\''s/^PRETTY_NAME=.*/PRETTY_NAME="LFA AI OS 1.0 (KDE Plasma 6)"/'\'' /etc/os-release || true
+
+  # 2. Sobrescribir defaults de Kubuntu (los que ganaban en Live Boot sobre /etc/skel)
+  KDEF="/usr/share/kubuntu-default-settings/kf5-settings"
+  mkdir -p "$KDEF" /etc/skel/.config
+  for dir in "$KDEF" /etc/skel/.config; do
+    cat > "$dir/kdeglobals" <<EOF
 [General]
 ColorScheme=LFADorado
 
@@ -136,15 +124,51 @@ LookAndFeelPackage=org.lfa.dorado
 widgetStyle=Breeze
 EOF
 
-  cat > /etc/skel/.config/plasmarc <<EOF
+    cat > "$dir/plasmarc" <<EOF
 [Theme]
 name=LFA-Plasma
 EOF
+
+    cat > "$dir/ksplashrc" <<EOF
+[KSplash]
+Engine=KSplashQML
+Theme=org.lfa.dorado
+EOF
+
+    cat > "$dir/kwinrc" <<EOF
+[org.kde.kdecoration2]
+ButtonsOnLeft=XIA
+ButtonsOnRight=
+library=org.kde.kwin.aurorae
+theme=__aurorae__svg__LFA
+EOF
+  done
+
+  cat > "$KDEF/kcm-about-distrorc" <<EOF
+[General]
+LogoPath=/usr/share/icons/hicolor/256x256/apps/lfa-ai-assistant.png
+Website=https://lfabuild.com
+Variant=LFA AI OS 1.0 (Multi-Agent AI Workstation)
+EOF
+
+  # 3. Activar Plymouth LFA AI OS y regenerar initramfs para que el arranque Live muestre LFA AI OS
+  if [[ -f /usr/share/plymouth/themes/lfa/lfa.plymouth ]]; then
+    update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/lfa/lfa.plymouth 200
+    update-alternatives --set default.plymouth /usr/share/plymouth/themes/lfa/lfa.plymouth
+    update-initramfs -u -k all || true
+  fi
 
   apt-get autoremove -y -qq
   apt-get clean
   rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 '
+
+# Copiar el initrd actualizado (con Plymouth LFA AI OS) al directorio casper/ de la ISO Live
+NEW_INITRD="$(ls -t "$WORK/squashfs/boot"/initrd.img-* 2>/dev/null | head -n1 || true)"
+if [[ -n "$NEW_INITRD" && -f "$NEW_INITRD" ]]; then
+  echo "    Actualizando casper/initrd con pantalla de arranque Plymouth LFA AI OS..."
+  cp "$NEW_INITRD" "$WORK/iso/casper/initrd"
+fi
 
 # Desmontar binds y restaurar sources.list.d y resolv.conf originales
 for m in run sys proc dev/pts dev; do
@@ -168,7 +192,14 @@ if [[ -f "$SIZE_FILE" ]]; then
   du -sx --block-size=1 "$WORK/squashfs" | awk '{print $1}' > "$SIZE_FILE"
 fi
 
-echo "==> 6/7 Actualizando md5sum.txt y metadatos de la ISO..."
+echo "==> 6/7 Actualizando menú GRUB Live, md5sum.txt y metadatos de la ISO..."
+for gcfg in "$WORK/iso/boot/grub/grub.cfg" "$WORK/iso/boot/grub/loopback.cfg"; do
+  if [[ -f "$gcfg" ]]; then
+    sed -i 's/Try or Install Kubuntu/Try or Install LFA AI OS 1.0/g' "$gcfg"
+    sed -i 's/Kubuntu (safe graphics)/LFA AI OS 1.0 (safe graphics)/g' "$gcfg"
+  fi
+done
+
 if [[ -f "$WORK/iso/.disk/info" ]]; then
   echo "LFA AI OS 1.0.0 (Based on Kubuntu 26.04.1 LTS) - amd64 ($(date +%Y%m%d))" > "$WORK/iso/.disk/info"
 fi
@@ -178,15 +209,7 @@ fi
   find . -type f ! -name md5sum.txt ! -path './isolinux/*' -print0 | xargs -0 md5sum > md5sum.txt
 )
 
-echo "==> 7/7 Generando ISO híbrida UEFI + BIOS exacta con xorriso..."
-# Leer las banderas exactas de arranque El Torito + partición EFI de la ISO original
-mapfile -t BOOT_ARGS < <(
-  xorriso -indev "$BASE_ISO" -report_el_torito as_mkisofs 2>/dev/null \
-    | grep -v '^-V ' \
-    | sed "s/^'//; s/'$//"
-)
-
-# Ejecutar xorriso preservando exactamente MBR + partición EFI GPT + El Torito (-iso-level 3 permite filesystem.squashfs > 4 GiB)
+echo "==> 7/7 Generando ISO híbrida UEFI + BIOS exacta con xorriso (-iso-level 3)..."
 eval xorriso -as mkisofs \
   -iso-level 3 \
   -r -V "'LFA_AI_OS_1_0'" \

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=LFA AI OS First-Boot Theme
+Exec=/usr/bin/lfa-apply-theme --first-boot
+Terminal=false
+X-KDE-autostart-after=panel
+OnlyShowIn=KDE;
