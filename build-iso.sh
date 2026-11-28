@@ -112,7 +112,16 @@ chroot "$WORK/squashfs" /bin/bash -euo pipefail -c '
   fi
   echo "LFA AI OS 1.0 \\n \\l" > /etc/issue || true
 
-  # 1b. Reemplazar branding de Kubuntu/KDE en el instalador Calamares y accesos directos Live
+  # 1b. Reemplazar la pantalla Live "Probar / Instalar Kubuntu" (kubuntu-installer-prompt) por LFA AI OS 1.0
+  if [[ -f /usr/bin/lfa-installer-prompt ]]; then
+    cp /usr/bin/lfa-installer-prompt /usr/bin/kubuntu-installer-prompt
+    chmod 0755 /usr/bin/kubuntu-installer-prompt
+  fi
+
+  # Reemplazar TODOS los gráficos, diapositivas (01..09) y textos de Calamares por LFA AI OS 1.0
+  LFA_BANNER="/usr/share/lfa-ai-os/graphics/lfa-banner.jpg"
+  LFA_GRUB_BG="/usr/share/lfa-ai-os/graphics/lfa-grub-bg.png"
+  LFA_LOCK_BG="/usr/share/lfa-ai-os/graphics/lfa-lockscreen-bg.jpg"
   for cdir in /etc/calamares/branding/* /usr/share/calamares/branding/*; do
     if [[ -d "$cdir" ]]; then
       if [[ -f "$cdir/branding.desc" ]]; then
@@ -121,9 +130,47 @@ chroot "$WORK/squashfs" /bin/bash -euo pipefail -c '
       for img in "$cdir"/*logo*.png "$cdir"/*icon*.png "$cdir"/*logo*.svg; do
         [[ -f "$img" ]] && cp /usr/share/icons/LFA/apps/512/lfa-logo.png "$img" || true
       done
-      for wimg in "$cdir"/*welcome*.png "$cdir"/*banner*.png "$cdir"/*background*.jpg "$cdir"/*background*.png "$cdir"/slide*.png "$cdir"/slide*.jpg; do
-        [[ -f "$wimg" ]] && cp /usr/share/sddm/themes/LFA-Dorado-SDDM/background.jpg "$wimg" || true
+      for wimg in "$cdir"/*welcome*.png "$cdir"/*banner*.png "$cdir"/*background*.jpg "$cdir"/*background*.png; do
+        [[ -f "$wimg" ]] && cp "$LFA_BANNER" "$wimg" || true
       done
+      # Reemplazar TODAS las diapositivas numeradas (01-welcome-to-kubuntu.png .. 09-open-source-software.png)
+      idx=0
+      for slide in "$cdir"/0*.png "$cdir"/0*.jpg "$cdir"/slide*.png "$cdir"/slide*.jpg; do
+        if [[ -f "$slide" ]]; then
+          case $((idx % 3)) in
+            0) cp "$LFA_BANNER" "$slide" ;;
+            1) cp "$LFA_GRUB_BG" "$slide" ;;
+            2) cp "$LFA_LOCK_BG" "$slide" ;;
+          esac
+          idx=$((idx + 1))
+        fi
+      done
+      # Reemplazar show.qml con presentación limpia de LFA AI OS 1.0 (cero referencias a Kubuntu/KDE)
+      if [[ -f "$cdir/show.qml" ]]; then
+        cat > "$cdir/show.qml" <<'\''QML_EOF'\''
+import QtQuick 2.0
+import calamares.slideshow 1.0
+
+Presentation {
+    id: presentation
+    Timer {
+        interval: 8000
+        running: true
+        repeat: true
+        onTriggered: presentation.goToNextSlide()
+    }
+    Slide {
+        Image { anchors.fill: parent; source: "01-welcome-to-kubuntu.png"; fillMode: Image.PreserveAspectCrop }
+    }
+    Slide {
+        Image { anchors.fill: parent; source: "02-kubuntu-lts.png"; fillMode: Image.PreserveAspectCrop }
+    }
+    Slide {
+        Image { anchors.fill: parent; source: "03-kde.png"; fillMode: Image.PreserveAspectCrop }
+    }
+}
+QML_EOF
+      fi
     fi
   done
 
@@ -367,7 +414,8 @@ if [[ -f "$SIZE_FILE" ]]; then
   du -sx --block-size=1 "$WORK/squashfs" | awk '{print $1}' > "$SIZE_FILE"
 fi
 
-echo "==> 6/7 Actualizando menú GRUB Live (colores y títulos LFA AI OS), md5sum.txt y metadatos..."
+echo "==> 6/7 Actualizando menú GRUB Live (fondo gráfico LFA AI OS, colores y títulos), md5sum.txt y metadatos..."
+cp "$ROOT/release-kit/graphics/lfa-grub-bg.png" "$WORK/iso/boot/grub/lfa-grub-bg.png"
 for gcfg in "$WORK/iso/boot/grub/grub.cfg" "$WORK/iso/boot/grub/loopback.cfg"; do
   if [[ -f "$gcfg" ]]; then
     sed -i 's/^set menu_color_normal=.*/set menu_color_normal=light-gray\/black/' "$gcfg"
@@ -376,6 +424,15 @@ for gcfg in "$WORK/iso/boot/grub/grub.cfg" "$WORK/iso/boot/grub/loopback.cfg"; d
     sed -i 's/Kubuntu (safe graphics)/LFA AI OS 1.0 (gráficos seguros)/g' "$gcfg"
     sed -i 's/Kubuntu/LFA AI OS 1.0/g' "$gcfg"
     sed -i '/OEM install (for manufacturers)/,/^[[:space:]]*}/d' "$gcfg"
+    if ! grep -q "lfa-grub-bg.png" "$gcfg"; then
+      sed -i '/^loadfont unicode/a \
+insmod all_video\
+insmod gfxterm\
+insmod png\
+set gfxmode=auto\
+terminal_output gfxterm\
+background_image /boot/grub/lfa-grub-bg.png' "$gcfg"
+    fi
   fi
 done
 

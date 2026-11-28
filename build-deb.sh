@@ -48,16 +48,22 @@ tar -xzf "$DORADO_13/LFA-Dorado-iconos-1.2.tar.gz" -C "$STAGE/usr/share/icons"
 tar -xzf "$DORADO_PKG/LFA-Dorado-bordes-de-ventana.tar.gz" -C "$STAGE/usr/share/aurorae/themes"
 cp "$DORADO_PKG/LFADorado.colors" "$STAGE/usr/share/color-schemes/LFADorado.colors"
 
-echo "==> 3/6 Integrando arranque LFA AI OS (Plymouth + SDDM con emblemas AI OS)..."
+echo "==> 3/6 Integrando arranque LFA AI OS (Plymouth + SDDM + Gráficos exclusivos AI OS)..."
 tar -xzf "$DORADO_PKG/LFA-Dorado-plymouth.tar.gz" -C "$STAGE/usr/share/plymouth/themes"
 # Actualizar watermark de Plymouth con el nuevo emblema LFA + AI OS (sin Interiors and Construction)
 cp "$APPLFA/LFA-Dorado-KDE-Store/actualizacion-1.3/fuentes/org.lfa.dorado/contents/splash/images/lfa-emblema.png" \
    "$STAGE/usr/share/plymouth/themes/lfa/watermark.png"
 
+# Instalar set de gráficos coherentes LFA AI OS (GRUB/Instalador, SDDM/Bloqueo, Banner)
+mkdir -p "$STAGE/usr/share/lfa-ai-os/graphics"
+cp "$ROOT/release-kit/graphics/00-banner-lfa-ai-os.jpg" "$STAGE/usr/share/lfa-ai-os/graphics/lfa-banner.jpg"
+cp "$ROOT/release-kit/graphics/lfa-grub-bg.png" "$STAGE/usr/share/lfa-ai-os/graphics/lfa-grub-bg.png"
+cp "$ROOT/release-kit/graphics/lfa-lockscreen-bg.jpg" "$STAGE/usr/share/lfa-ai-os/graphics/lfa-lockscreen-bg.jpg"
+
 tar -xzf "$DORADO_PKG/LFA-Dorado-SDDM.tar.gz" -C "$STAGE/usr/share/sddm/themes"
-# Actualizar fondo de SDDM con el banner limpio LFA AI OS
-cp "$ROOT/release-kit/graphics/00-banner-lfa-ai-os.jpg" "$STAGE/usr/share/sddm/themes/LFA-Dorado-SDDM/background.jpg"
-cp "$ROOT/release-kit/graphics/00-banner-lfa-ai-os.jpg" "$STAGE/usr/share/sddm/themes/LFA-Dorado-SDDM/fondo-lfa.jpg"
+# Usar el fondo minimalista nocturno de cristal dorado en SDDM (distinto al banner del instalador)
+cp "$ROOT/release-kit/graphics/lfa-lockscreen-bg.jpg" "$STAGE/usr/share/sddm/themes/LFA-Dorado-SDDM/background.jpg"
+cp "$ROOT/release-kit/graphics/lfa-lockscreen-bg.jpg" "$STAGE/usr/share/sddm/themes/LFA-Dorado-SDDM/fondo-lfa.jpg"
 
 echo "==> 4/6 Integrando LFA Living Landscapes 0.6.4 (WebP)..."
 unzip -q "$LANDSCAPES_ZIP" -d "$STAGE/usr/share/plasma/wallpapers/org.lfa.weatherlandscape"
@@ -68,7 +74,7 @@ cp "$ROOT/debian/postinst" "$STAGE/DEBIAN/postinst"
 cp "$ROOT/debian/prerm" "$STAGE/DEBIAN/prerm"
 
 chmod 0755 "$STAGE/DEBIAN/postinst" "$STAGE/DEBIAN/prerm"
-chmod 0755 "$STAGE/usr/bin/lfa-ai-setup" "$STAGE/usr/bin/lfa-ai-assistant" "$STAGE/usr/bin/lfa-apply-theme"
+chmod 0755 "$STAGE/usr/bin/lfa-ai-setup" "$STAGE/usr/bin/lfa-ai-assistant" "$STAGE/usr/bin/lfa-apply-theme" "$STAGE/usr/bin/lfa-installer-prompt"
 chmod 0644 "$STAGE/etc/systemd/zram-generator.conf"
 chmod 0644 "$STAGE/etc/sysctl.d/99-lfa-ai-workstation.conf"
 chmod 0644 "$STAGE/etc/sddm.conf.d/lfa-ai-os.conf"

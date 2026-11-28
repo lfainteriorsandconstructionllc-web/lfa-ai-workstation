@@ -30,33 +30,9 @@ for (var j = 0; j < desktopsArray.length; j++) {
             weather.reloadConfig()
         }
 
-        // 2. Monitor de Sistema "Sistema" con colores LFA dorado/cobre/oliva (centro derecha)
-        var sysmon = d.addWidget("org.kde.plasma.systemmonitor", colX, Math.round(sh * 0.37), colW, Math.round(sh * 0.28))
-        if (sysmon) {
-            sysmon.currentConfigGroup = []
-            sysmon.writeConfig("CurrentPreset", "org.kde.plasma.systemmonitor")
-
-            sysmon.currentConfigGroup = ["Appearance"]
-            sysmon.writeConfig("chartFace", "org.kde.ksysguard.horizontalbars")
-            sysmon.writeConfig("showTitle", true)
-            sysmon.writeConfig("title", "Sistema")
-
-            sysmon.currentConfigGroup = ["Sensors"]
-            sysmon.writeConfig("highPrioritySensorIds", '["cpu/all/usage","memory/physical/usedPercent","disk/all/usedPercent","gpu/all/usage"]')
-            sysmon.writeConfig("lowPrioritySensorIds", '["cpu/all/averageTemperature"]')
-
-            sysmon.currentConfigGroup = ["SensorColors"]
-            sysmon.writeConfig("cpu/all/usage", "209,181,123")
-            sysmon.writeConfig("memory/physical/usedPercent", "214,140,100")
-            sysmon.writeConfig("disk/all/usedPercent", "160,170,100")
-            sysmon.writeConfig("gpu/all/usage", "150,158,166")
-            sysmon.writeConfig("memory/swap/usedPercent", "236,214,160")
-
-            sysmon.currentConfigGroup = ["FaceGrid", "Appearance"]
-            sysmon.writeConfig("chartFace", "org.kde.ksysguard.linechart")
-            sysmon.writeConfig("showTitle", false)
-
-            sysmon.reloadConfig()
+        // 2. Monitor de Sistema nativo LFA ("Sistema" con barras doradas/cobre/oliva, siempre activo)
+        if (knownWidgetTypes.indexOf("org.lfa.sistema") >= 0) {
+            d.addWidget("org.lfa.sistema", colX, Math.round(sh * 0.37), colW, Math.round(sh * 0.28))
         }
 
         // 3. Widget de Noticias LFA (abajo a la derecha)
@@ -108,19 +84,31 @@ var hasMacDock = knownWidgetTypes.indexOf("com.github.mattanis.macosdock") >= 0
 var tasks = panel.addWidget(hasMacDock ? "com.github.mattanis.macosdock" : "org.kde.plasma.icontasks")
 if (tasks) {
     tasks.currentConfigGroup = ["General"]
-    var launchers = ["preferred://filemanager", "preferred://browser"]
-    var extra = [
+    var launchers = []
+    var candidates = [
+        "org.kde.dolphin.desktop",
+        "firefox_firefox.desktop",
+        "firefox.desktop",
         "lfa-ai-assistant.desktop",
-        "lfa-ai-setup.desktop",
         "org.kde.konsole.desktop",
         "org.kde.kate.desktop",
-        "org.kde.discover.desktop",
         "systemsettings.desktop"
     ]
-    for (var i = 0; i < extra.length; i++) {
-        if (applicationExists(extra[i])) {
-            launchers.push("applications:" + extra[i])
+    var addedBrowser = false
+    for (var i = 0; i < candidates.length; i++) {
+        var cid = candidates[i]
+        if ((cid === "firefox_firefox.desktop" || cid === "firefox.desktop") && addedBrowser) {
+            continue
         }
+        if (applicationExists(cid)) {
+            launchers.push("applications:" + cid)
+            if (cid === "firefox_firefox.desktop" || cid === "firefox.desktop") {
+                addedBrowser = true
+            }
+        }
+    }
+    if (!addedBrowser) {
+        launchers.splice(1, 0, "preferred://browser")
     }
     tasks.writeConfig("launchers", launchers)
     if (hasMacDock) {

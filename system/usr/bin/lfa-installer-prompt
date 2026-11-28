@@ -1,0 +1,301 @@
+#!/usr/bin/env python3
+"""
+LFA AI OS 1.0 — Live Boot Prompt (Try or Install LFA AI OS).
+Replaces kubuntu-installer-prompt in the Live ISO so zero Kubuntu graphics appear.
+License: GPL-3.0-or-later
+"""
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont, QIcon, QPainter, QPixmap
+from PyQt6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+BG_CANDIDATES = [
+    "/usr/share/lfa-ai-os/graphics/lfa-grub-bg.png",
+    "/usr/share/sddm/themes/LFA-Dorado-SDDM/background.jpg",
+]
+LOGO_CANDIDATES = [
+    "/usr/share/icons/LFA/apps/512/lfa-logo.png",
+    "/usr/share/icons/hicolor/256x256/apps/lfa-ai-assistant.png",
+]
+
+LANGUAGES = [
+    ("Español", "es_ES.UTF-8"),
+    ("English (US)", "en_US.UTF-8"),
+    ("Português (Brasil)", "pt_BR.UTF-8"),
+    ("Français", "fr_FR.UTF-8"),
+    ("Deutsch", "de_DE.UTF-8"),
+]
+
+STRINGS = {
+    "es": {
+        "subtitle": "Estación de trabajo inteligente · Escritorio vivo y agentes IA integrados",
+        "lang": "Idioma del sistema:",
+        "try_btn": "Probar LFA AI OS 1.0",
+        "try_desc": "Explora el sistema completo en vivo sin modificar tu disco",
+        "inst_btn": "Instalar LFA AI OS 1.0",
+        "inst_desc": "Instala LFA AI OS de forma permanente en tu equipo",
+    },
+    "en": {
+        "subtitle": "Intelligent Workstation · Living Desktop & Built-in AI Agents",
+        "lang": "System language:",
+        "try_btn": "Try LFA AI OS 1.0",
+        "try_desc": "Explore the full live desktop without modifying your disk",
+        "inst_btn": "Install LFA AI OS 1.0",
+        "inst_desc": "Permanently install LFA AI OS on your computer",
+    },
+    "pt": {
+        "subtitle": "Estação de trabalho inteligente · Escritório vivo e agentes IA integrados",
+        "lang": "Idioma do sistema:",
+        "try_btn": "Testar LFA AI OS 1.0",
+        "try_desc": "Explore o sistema completo ao vivo sem alterar seu disco",
+        "inst_btn": "Instalar LFA AI OS 1.0",
+        "inst_desc": "Instale o LFA AI OS permanentemente no seu computador",
+    },
+    "fr": {
+        "subtitle": "Station de travail intelligente · Bureau vivant et agents IA intégrés",
+        "lang": "Langue du système :",
+        "try_btn": "Essayer LFA AI OS 1.0",
+        "try_desc": "Explorez le système complet en direct sans modifier votre disque",
+        "inst_btn": "Installer LFA AI OS 1.0",
+        "inst_desc": "Installez LFA AI OS de façon permanente sur votre ordinateur",
+    },
+    "de": {
+        "subtitle": "Intelligente Workstation · Lebendiger Desktop & integrierte KI-Agenten",
+        "lang": "Systemsprache:",
+        "try_btn": "LFA AI OS 1.0 testen",
+        "try_desc": "Erkunde das vollständige Live-System ohne Änderungen an deiner Festplatte",
+        "inst_btn": "LFA AI OS 1.0 installieren",
+        "inst_desc": "Installiere LFA AI OS dauerhaft auf deinem Computer",
+    },
+}
+
+STYLE = """
+QFrame#card {
+    background-color: rgba(20, 25, 31, 215);
+    border: 1px solid rgba(212, 175, 55, 115);
+    border-radius: 18px;
+}
+QLabel#title {
+    color: #e6c66e;
+    font-size: 28px;
+    font-weight: 700;
+}
+QLabel#sub {
+    color: #b7c2cd;
+    font-size: 14px;
+}
+QLabel#hint {
+    color: #8f9ba8;
+    font-size: 12px;
+}
+QComboBox {
+    background-color: #202830;
+    color: #f0f4f8;
+    border: 1px solid #485664;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    min-width: 220px;
+}
+QComboBox:focus, QComboBox:hover {
+    border: 1px solid #d4af37;
+}
+QPushButton#tryBtn {
+    background-color: #cca535;
+    border: 1px solid #f0d78c;
+    border-radius: 12px;
+    color: #14181d;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 16px 26px;
+    min-width: 240px;
+}
+QPushButton#tryBtn:hover {
+    background-color: #e0ba4c;
+}
+QPushButton#instBtn {
+    background-color: #232c35;
+    border: 1px solid #d4af37;
+    border-radius: 12px;
+    color: #f2e1ad;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 16px 26px;
+    min-width: 240px;
+}
+QPushButton#instBtn:hover {
+    background-color: #2f3b47;
+    border: 1px solid #f0d78c;
+}
+"""
+
+
+class LfaLivePrompt(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("LFA AI OS 1.0")
+        self.setStyleSheet(STYLE)
+
+        self.bg_pixmap = QPixmap()
+        for p in BG_CANDIDATES:
+            if os.path.exists(p):
+                self.bg_pixmap = QPixmap(p)
+                break
+
+        logo_path = ""
+        for p in LOGO_CANDIDATES:
+            if os.path.exists(p):
+                logo_path = p
+                self.setWindowIcon(QIcon(p))
+                break
+
+        outer = QVBoxLayout(self)
+        outer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        card = QFrame()
+        card.setObjectName("card")
+        card.setFixedWidth(680)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(42, 36, 42, 36)
+        lay.setSpacing(18)
+        lay.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+        if logo_path:
+            logo_lbl = QLabel()
+            logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            logo_lbl.setPixmap(
+                QPixmap(logo_path).scaled(
+                    96, 96, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+                )
+            )
+            lay.addWidget(logo_lbl)
+
+        title = QLabel("LFA AI OS 1.0")
+        title.setObjectName("title")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(title)
+
+        self.sub_lbl = QLabel()
+        self.sub_lbl.setObjectName("sub")
+        self.sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sub_lbl.setWordWrap(True)
+        lay.addWidget(self.sub_lbl)
+
+        lang_row = QHBoxLayout()
+        lang_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lang_lbl = QLabel()
+        self.lang_lbl.setObjectName("sub")
+        self.lang_combo = QComboBox()
+        for label, code in LANGUAGES:
+            self.lang_combo.addItem(label, code)
+        self.lang_combo.currentIndexChanged.connect(self.on_lang_changed)
+        lang_row.addWidget(self.lang_lbl)
+        lang_row.addWidget(self.lang_combo)
+        lay.addLayout(lang_row)
+
+        lay.addSpacing(8)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(20)
+
+        try_col = QVBoxLayout()
+        self.try_btn = QPushButton()
+        self.try_btn.setObjectName("tryBtn")
+        self.try_btn.clicked.connect(self.on_try)
+        self.try_hint = QLabel()
+        self.try_hint.setObjectName("hint")
+        self.try_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.try_hint.setWordWrap(True)
+        try_col.addWidget(self.try_btn)
+        try_col.addWidget(self.try_hint)
+
+        inst_col = QVBoxLayout()
+        self.inst_btn = QPushButton()
+        self.inst_btn.setObjectName("instBtn")
+        self.inst_btn.clicked.connect(self.on_install)
+        self.inst_hint = QLabel()
+        self.inst_hint.setObjectName("hint")
+        self.inst_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.inst_hint.setWordWrap(True)
+        inst_col.addWidget(self.inst_btn)
+        inst_col.addWidget(self.inst_hint)
+
+        btn_row.addLayout(try_col)
+        btn_row.addLayout(inst_col)
+        lay.addLayout(btn_row)
+
+        outer.addWidget(card)
+        self.apply_strings("es")
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        if not self.bg_pixmap.isNull():
+            scaled = self.bg_pixmap.scaled(
+                self.size(),
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            x = (self.width() - scaled.width()) // 2
+            y = (self.height() - scaled.height()) // 2
+            painter.drawPixmap(x, y, scaled)
+        else:
+            painter.fillRect(self.rect(), Qt.GlobalColor.black)
+
+    def apply_strings(self, short_code):
+        s = STRINGS.get(short_code, STRINGS["es"])
+        self.sub_lbl.setText(s["subtitle"])
+        self.lang_lbl.setText(s["lang"])
+        self.try_btn.setText(s["try_btn"])
+        self.try_hint.setText(s["try_desc"])
+        self.inst_btn.setText(s["inst_btn"])
+        self.inst_hint.setText(s["inst_desc"])
+
+    def on_lang_changed(self, idx):
+        locale = self.lang_combo.itemData(idx) or "es_ES.UTF-8"
+        short = locale.split("_")[0]
+        self.apply_strings(short)
+        helper = "/usr/libexec/change-system-language"
+        if os.path.exists(helper) and os.access(helper, os.X_OK):
+            try:
+                subprocess.Popen([helper, locale])
+            except Exception:
+                pass
+
+    def on_try(self):
+        QApplication.instance().quit()
+
+    def on_install(self):
+        self.hide()
+        for cmd in (["sudo", "-E", "calamares"], ["calamares"]):
+            try:
+                subprocess.run(cmd, check=False)
+                break
+            except FileNotFoundError:
+                continue
+        QApplication.instance().quit()
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setFont(QFont("Noto Sans", 10))
+    win = LfaLivePrompt()
+    win.showFullScreen()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

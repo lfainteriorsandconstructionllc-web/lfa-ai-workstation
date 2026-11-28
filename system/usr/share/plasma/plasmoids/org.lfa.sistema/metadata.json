@@ -1,0 +1,18 @@
+{
+  "KPlugin": {
+    "Authors": [
+      {
+        "Name": "LFA AI OS"
+      }
+    ],
+    "Category": "System Information",
+    "Description": "Monitor de sistema elegante LFA Dorado (CPU, Memoria, Disco y Temperatura)",
+    "Icon": "utilities-system-monitor",
+    "Id": "org.lfa.sistema",
+    "License": "GPL-3.0-or-later",
+    "Name": "Sistema LFA",
+    "Version": "1.0"
+  },
+  "KPackageStructure": "Plasma/Applet",
+  "X-Plasma-API-Minimum-Version": "6.0"
+}
