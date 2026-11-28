@@ -55,10 +55,13 @@ cp "$APPLFA/LFA-Dorado-KDE-Store/actualizacion-1.3/fuentes/org.lfa.dorado/conten
    "$STAGE/usr/share/plymouth/themes/lfa/watermark.png"
 
 # Instalar set de gráficos coherentes LFA AI OS (GRUB/Instalador, SDDM/Bloqueo, Banner)
-mkdir -p "$STAGE/usr/share/lfa-ai-os/graphics"
+mkdir -p "$STAGE/usr/share/lfa-ai-os/graphics" "$STAGE/usr/share/lfa-ai-os/whisper"
 cp "$ROOT/release-kit/graphics/00-banner-lfa-ai-os.jpg" "$STAGE/usr/share/lfa-ai-os/graphics/lfa-banner.jpg"
 cp "$ROOT/release-kit/graphics/lfa-grub-bg.png" "$STAGE/usr/share/lfa-ai-os/graphics/lfa-grub-bg.png"
 cp "$ROOT/release-kit/graphics/lfa-lockscreen-bg.jpg" "$STAGE/usr/share/lfa-ai-os/graphics/lfa-lockscreen-bg.jpg"
+if [[ -f "$ROOT/assets/ggml-base-q5_1.bin" ]]; then
+  cp "$ROOT/assets/ggml-base-q5_1.bin" "$STAGE/usr/share/lfa-ai-os/whisper/ggml-base-q5_1.bin"
+fi
 
 tar -xzf "$DORADO_PKG/LFA-Dorado-SDDM.tar.gz" -C "$STAGE/usr/share/sddm/themes"
 # Usar el fondo minimalista nocturno de cristal dorado en SDDM (distinto al banner del instalador)

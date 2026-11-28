@@ -5,7 +5,7 @@ Priority: optional
 Architecture: all
 Maintainer: LFA Interiors and Construction LLC <lorenzo@lfabuild.com>
 Homepage: https://github.com/lfainteriorsandconstructionllc-web/lfa-ai-workstation
-Depends: systemd-zram-generator, systemd-oomd, python3, python3-pyqt6, curl, git, ca-certificates, qt6-image-formats-plugins
+Depends: systemd-zram-generator, systemd-oomd, python3, python3-pyqt6, curl, git, ca-certificates, qt6-image-formats-plugins, whisper.cpp
 Recommends: konsole, dolphin, plasma-desktop
 Description: LFA AI Workstation — Multi-Agent Optimization & KDE Plasma 6 Theme Suite
  Optimizes Ubuntu / Kubuntu 26.04 LTS for running multiple cloud AI coding

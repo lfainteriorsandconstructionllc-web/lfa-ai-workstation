@@ -1,6 +1,7 @@
 build/
 dist/
 iso-base/
+assets/*.bin
 *.deb
 *.iso
 __pycache__/
