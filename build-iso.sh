@@ -117,6 +117,9 @@ chroot "$WORK/squashfs" /bin/bash -euo pipefail -c '
     cp /usr/bin/lfa-installer-prompt /usr/bin/kubuntu-installer-prompt
     chmod 0755 /usr/bin/kubuntu-installer-prompt
   fi
+  if [[ -f /usr/libexec/start-kubuntu-live-env ]]; then
+    sed -i '\''s/kwin_wayland --xwayland --no-lockscreen kubuntu-installer-prompt/kwin_wayland --xwayland --no-lockscreen --exit-with-session=kubuntu-installer-prompt/'\'' /usr/libexec/start-kubuntu-live-env || true
+  fi
 
   # Reemplazar TODOS los gráficos, diapositivas (01..09) y textos de Calamares por LFA AI OS 1.0
   LFA_BANNER="/usr/share/lfa-ai-os/graphics/lfa-banner.jpg"

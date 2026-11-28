@@ -275,8 +275,18 @@ class LfaLivePrompt(QWidget):
             except Exception:
                 pass
 
-    def on_try(self):
+    def _exit_to_desktop(self):
+        self.hide()
         QApplication.instance().quit()
+        for cmd in (["/usr/bin/killall", "kwin_wayland"], ["pkill", "-TERM", "kwin_wayland"]):
+            try:
+                subprocess.Popen(cmd)
+                break
+            except FileNotFoundError:
+                continue
+
+    def on_try(self):
+        self._exit_to_desktop()
 
     def on_install(self):
         self.hide()
@@ -286,7 +296,7 @@ class LfaLivePrompt(QWidget):
                 break
             except FileNotFoundError:
                 continue
-        QApplication.instance().quit()
+        self._exit_to_desktop()
 
 
 def main():

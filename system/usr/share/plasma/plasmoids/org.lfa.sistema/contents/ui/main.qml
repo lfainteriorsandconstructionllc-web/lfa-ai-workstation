@@ -64,6 +64,7 @@ PlasmoidItem {
     }
 
     component MetricBar: ColumnLayout {
+        id: barItem
         property string label: ""
         property string valueText: ""
         property real ratio: 0
@@ -75,14 +76,14 @@ PlasmoidItem {
         RowLayout {
             Layout.fillWidth: true
             PC3.Label {
-                text: label
+                text: barItem.label
                 color: "#e6eaee"
                 font.weight: Font.Medium
                 font.pointSize: 9.5
                 Layout.fillWidth: true
             }
             PC3.Label {
-                text: valueText
+                text: barItem.valueText
                 color: "#c8d0d8"
                 font.pointSize: 9
             }
@@ -90,15 +91,16 @@ PlasmoidItem {
 
         Rectangle {
             Layout.fillWidth: true
-            height: 8
+            Layout.preferredHeight: 8
+            implicitHeight: 8
             radius: 4
             color: "#2a333c"
 
             Rectangle {
-                width: Math.max(4, parent.width * Math.min(1, Math.max(0, ratio)))
+                width: Math.max(4, parent.width * Math.min(1, Math.max(0, barItem.ratio)))
                 height: parent.height
                 radius: 4
-                color: barColor
+                color: barItem.barColor
 
                 Behavior on width {
                     NumberAnimation { duration: 400; easing.type: Easing.OutCubic }
