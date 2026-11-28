@@ -163,12 +163,9 @@ EOF
   rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 '
 
-# Copiar el initrd actualizado (con Plymouth LFA AI OS) al directorio casper/ de la ISO Live
-NEW_INITRD="$(ls -t "$WORK/squashfs/boot"/initrd.img-* 2>/dev/null | head -n1 || true)"
-if [[ -n "$NEW_INITRD" && -f "$NEW_INITRD" ]]; then
-  echo "    Actualizando casper/initrd con pantalla de arranque Plymouth LFA AI OS..."
-  cp "$NEW_INITRD" "$WORK/iso/casper/initrd"
-fi
+# NOTA: NO sobrescribir casper/initrd con /boot/initrd.img-* porque casper/initrd contiene
+# los hooks Live USB (casper) para montar filesystem.squashfs; el Plymouth LFA se aplica
+# automáticamente al instalar el sistema en disco.
 
 # Desmontar binds y restaurar sources.list.d y resolv.conf originales
 for m in run sys proc dev/pts dev; do
