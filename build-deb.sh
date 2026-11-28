@@ -75,7 +75,6 @@ chmod 0644 "$STAGE/etc/sddm.conf.d/lfa-ai-os.conf"
 chmod 0644 "$STAGE/usr/share/applications/lfa-ai-setup.desktop" "$STAGE/usr/share/applications/lfa-ai-assistant.desktop"
 chmod 0644 "$STAGE/etc/xdg/autostart/lfa-first-boot-theme.desktop"
 chmod 0755 "$STAGE/etc/skel/Desktop/lfa-ai-assistant.desktop"
-chmod 0644 "$STAGE/etc/skel/.config/autostart/lfa-ai-setup.desktop"
 chmod 0644 "$STAGE/etc/skel/.gradle/gradle.properties" "$STAGE/etc/skel/.cargo/config.toml"
 
 INSTALLED_SIZE=$(du -sk "$STAGE" | awk '{print $1}')

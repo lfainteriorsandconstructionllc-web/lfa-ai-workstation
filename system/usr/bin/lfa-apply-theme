@@ -12,6 +12,25 @@ if [[ "${1:-}" == "--first-boot" ]]; then
   fi
 fi
 
+# Asegurar que el demonio ksystemstats esté activo para que el widget "Sistema" muestre datos en vivo
+systemctl --user start plasma-ksystemstats.service 2>/dev/null || (command -v ksystemstats >/dev/null 2>&1 && nohup ksystemstats >/dev/null 2>&1 &) || true
+
+# Limpiar iconos duplicados o residuales de Kubuntu/KDE en el escritorio
+if [[ -d "$HOME/Desktop" ]]; then
+  rm -f "$HOME/Desktop/a_welcome.desktop" \
+        "$HOME/Desktop/"*kfocus* \
+        "$HOME/Desktop/"*ubiquity* \
+        "$HOME/Desktop/org.kubuntu."* 2>/dev/null || true
+  # Si hay más de un icono de Calamares, dejar sólo uno renombrado a LFA AI OS 1.0
+  CAL_LIST=("$HOME/Desktop/"*calamares*.desktop)
+  if [[ -e "${CAL_LIST[0]}" ]]; then
+    for ((idx=1; idx<${#CAL_LIST[@]}; idx++)); do
+      rm -f "${CAL_LIST[$idx]}" 2>/dev/null || true
+    done
+    sed -i -E 's/Kubuntu/LFA AI OS 1.0/g; s/^Icon=.*/Icon=lfa-logo/' "${CAL_LIST[0]}" 2>/dev/null || true
+  fi
+fi
+
 # Esperar a que plasmashell esté listo en D-Bus (especialmente en el primer arranque Live)
 for _ in $(seq 1 30); do
   if command -v qdbus6 >/dev/null 2>&1 && qdbus6 org.kde.plasmashell /PlasmaShell >/dev/null 2>&1; then

@@ -27,26 +27,36 @@ for (var j = 0; j < desktopsArray.length; j++) {
             weather.writeConfig("provider", "bbcukmet")
             weather.writeConfig("placeDisplayName", "New York, US")
             weather.writeConfig("placeInfo", "New York, United States, US|5128581")
+            weather.reloadConfig()
         }
 
         // 2. Monitor de Sistema "Sistema" con colores LFA dorado/cobre/oliva (centro derecha)
         var sysmon = d.addWidget("org.kde.plasma.systemmonitor", colX, Math.round(sh * 0.37), colW, Math.round(sh * 0.28))
         if (sysmon) {
+            sysmon.currentConfigGroup = []
+            sysmon.writeConfig("CurrentPreset", "org.kde.plasma.systemmonitor")
+
             sysmon.currentConfigGroup = ["Appearance"]
             sysmon.writeConfig("chartFace", "org.kde.ksysguard.horizontalbars")
             sysmon.writeConfig("showTitle", true)
             sysmon.writeConfig("title", "Sistema")
 
             sysmon.currentConfigGroup = ["Sensors"]
-            sysmon.writeConfig("highPrioritySensorIds", '["cpu/all/usage","memory/physical/usedPercent","gpu/all/usage","disk/all/usedPercent"]')
+            sysmon.writeConfig("highPrioritySensorIds", '["cpu/all/usage","memory/physical/usedPercent","disk/all/usedPercent","gpu/all/usage"]')
             sysmon.writeConfig("lowPrioritySensorIds", '["cpu/all/averageTemperature"]')
 
             sysmon.currentConfigGroup = ["SensorColors"]
             sysmon.writeConfig("cpu/all/usage", "209,181,123")
             sysmon.writeConfig("memory/physical/usedPercent", "214,140,100")
-            sysmon.writeConfig("gpu/all/usage", "150,158,166")
             sysmon.writeConfig("disk/all/usedPercent", "160,170,100")
+            sysmon.writeConfig("gpu/all/usage", "150,158,166")
             sysmon.writeConfig("memory/swap/usedPercent", "236,214,160")
+
+            sysmon.currentConfigGroup = ["FaceGrid", "Appearance"]
+            sysmon.writeConfig("chartFace", "org.kde.ksysguard.linechart")
+            sysmon.writeConfig("showTitle", false)
+
+            sysmon.reloadConfig()
         }
 
         // 3. Widget de Noticias LFA (abajo a la derecha)
