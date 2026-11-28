@@ -36,13 +36,19 @@ HISTORY_DIR = Path.home() / ".local" / "share" / "lfa-ai-assistant"
 HISTORY_FILE = HISTORY_DIR / "history.json"
 
 PROVIDERS = {
-    "Google Gemini (Gratis)": {
+    "LFA AI Gratis (Sin API Key)": {
+        "type": "free_public",
+        "url": "https://text.pollinations.ai/openai",
+        "default_model": "openai",
+        "hint": "Listo para usar gratis sin configurar ninguna clave API (vía Pollinations.ai).",
+    },
+    "Google Gemini (Gratis con API Key)": {
         "type": "gemini",
         "url": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         "default_model": "gemini-2.5-flash",
         "hint": "API Key gratis en https://aistudio.google.com/apikey",
     },
-    "Groq (Gratis)": {
+    "Groq (Gratis con API Key)": {
         "type": "openai",
         "url": "https://api.groq.com/openai/v1/chat/completions",
         "default_model": "llama-3.3-70b-versatile",
@@ -125,10 +131,10 @@ def load_config():
         except Exception:
             pass
     return {
-        "provider": "Google Gemini (Gratis)",
-        "model": "gemini-2.5-flash",
+        "provider": "LFA AI Gratis (Sin API Key)",
+        "model": "openai",
         "api_key": "",
-        "system_prompt": "Eres LFA AI Assistant, un asistente integrado en LFA AI OS (KDE Plasma 6). Responde de forma clara, precisa y útil.",
+        "system_prompt": "Eres LFA AI Assistant, el asistente nativo integrado en LFA AI OS (KDE Plasma 6). Responde de forma clara, precisa y en el idioma del usuario.",
     }
 
 
@@ -149,12 +155,29 @@ class ApiWorker(QThread):
 
     def run(self):
         try:
-            prov_name = self.cfg.get("provider", "Google Gemini (Gratis)")
-            prov = PROVIDERS.get(prov_name, PROVIDERS["Google Gemini (Gratis)"])
+            prov_name = self.cfg.get("provider", "LFA AI Gratis (Sin API Key)")
+            prov = PROVIDERS.get(prov_name, PROVIDERS["LFA AI Gratis (Sin API Key)"])
             ptype = prov["type"]
             model = (self.cfg.get("model") or prov["default_model"]).strip()
             api_key = (self.cfg.get("api_key") or "").strip()
             sys_prompt = self.cfg.get("system_prompt", "")
+
+            if ptype == "free_public":
+                msgs = []
+                if sys_prompt:
+                    msgs.append({"role": "system", "content": sys_prompt})
+                msgs.extend(self.messages)
+                payload = {"model": model, "messages": msgs}
+                req = urllib.request.Request(
+                    prov["url"],
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "User-Agent": "LFA-AI-OS/1.0"},
+                )
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                reply = data["choices"][0]["message"]["content"]
+                self.finished_ok.emit(reply)
+                return
 
             if ptype in ("gemini", "openai") and not api_key:
                 self.finished_err.emit(
@@ -378,8 +401,8 @@ class AssistantWindow(QWidget):
             self.chat.setHtml(
                 "<div style='color:#9aa7b4; padding:12px;'>"
                 "<b style='color:#d4af37;'>Bienvenido a LFA AI Assistant.</b><br><br>"
-                "Haz clic en <b>Configurar</b> para conectar una clave gratuita (Google Gemini, Groq u OpenRouter) "
-                "o usar <b>Ollama</b> en local sin conexión."
+                "Ya está listo para usar <b>gratis y sin clave API</b>. Escribe cualquier pregunta abajo y pulsa <b>Enviar</b> (o <code>Ctrl+Enter</code>).<br><br>"
+                "Si prefieres usar tu propia API Key de Google Gemini, Groq, OpenRouter o un modelo local en Ollama, haz clic en <b>Configurar</b>."
                 "</div>"
             )
             return

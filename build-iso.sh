@@ -105,8 +105,37 @@ chroot "$WORK/squashfs" /bin/bash -euo pipefail -c '
   apt-get install -y /tmp/lfa-ai-workstation.deb
   rm -f /tmp/lfa-ai-workstation.deb
 
-  # 1. Identidad del sistema (conserva ID=ubuntu para 100% compatibilidad de paquetes/drivers)
+  # 1. Identidad completa del sistema (conserva ID=ubuntu para 100% compatibilidad de paquetes/drivers)
   sed -i '\''s/^PRETTY_NAME=.*/PRETTY_NAME="LFA AI OS 1.0 (KDE Plasma 6)"/'\'' /etc/os-release || true
+  if [[ -f /etc/lsb-release ]]; then
+    sed -i '\''s/^DISTRIB_DESCRIPTION=.*/DISTRIB_DESCRIPTION="LFA AI OS 1.0"/'\'' /etc/lsb-release || true
+  fi
+  echo "LFA AI OS 1.0 \\n \\l" > /etc/issue || true
+
+  # 1b. Reemplazar branding de Kubuntu en el instalador Calamares y accesos directos Live
+  for cdir in /etc/calamares/branding/* /usr/share/calamares/branding/*; do
+    if [[ -d "$cdir" ]]; then
+      if [[ -f "$cdir/branding.desc" ]]; then
+        sed -i -E '\''s/Kubuntu/LFA AI OS/g'\'' "$cdir/branding.desc" || true
+      fi
+      for img in "$cdir"/*logo*.png "$cdir"/*icon*.png; do
+        [[ -f "$img" ]] && cp /usr/share/icons/LFA/apps/512/lfa-logo.png "$img" || true
+      done
+      for wimg in "$cdir"/*welcome*.png "$cdir"/*banner*.png "$cdir"/*background*.jpg "$cdir"/*background*.png; do
+        [[ -f "$wimg" ]] && cp /usr/share/sddm/themes/LFA-Dorado-SDDM/background.jpg "$wimg" || true
+      done
+    fi
+  done
+
+  for dfile in /usr/share/applications/*calamares*.desktop /etc/skel/Desktop/*calamares*.desktop /usr/share/kubuntu-default-settings/*calamares*.desktop; do
+    if [[ -f "$dfile" ]]; then
+      sed -i -E '\''s/Kubuntu/LFA AI OS 1.0/g'\'' "$dfile" || true
+      sed -i -E '\''s/^Icon=.*/Icon=lfa-logo/'\'' "$dfile" || true
+    fi
+  done
+
+  # Eliminar enlaces web promocionales de Kubuntu del escritorio Live
+  rm -f /etc/skel/Desktop/*kubuntu* /etc/skel/Desktop/*kfocus* 2>/dev/null || true
 
   # 2. Sobrescribir defaults de Kubuntu (los que ganaban en Live Boot sobre /etc/skel)
   KDEF="/usr/share/kubuntu-default-settings/kf5-settings"

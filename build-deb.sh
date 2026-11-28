@@ -20,10 +20,11 @@ echo "==> 1/6 Copiando archivos de sistema y /etc/skel..."
 cp -a "$ROOT/system/." "$STAGE/"
 find "$STAGE" -name "__pycache__" -type d -exec rm -rf {} +
 
-echo "==> 2/6 Integrando LFA Dorado 1.3 (Global, Plasma, Íconos, Colores, Bordes)..."
+echo "==> 2/6 Integrando LFA Dorado 1.3 (Global, Plasma, Íconos, Colores, Bordes, Widgets)..."
 mkdir -p \
   "$STAGE/usr/share/plasma/look-and-feel" \
   "$STAGE/usr/share/plasma/desktoptheme" \
+  "$STAGE/usr/share/plasma/plasmoids" \
   "$STAGE/usr/share/plasma/wallpapers/org.lfa.weatherlandscape" \
   "$STAGE/usr/share/icons" \
   "$STAGE/usr/share/color-schemes" \
@@ -32,6 +33,16 @@ mkdir -p \
   "$STAGE/usr/share/sddm/themes"
 
 tar -xzf "$DORADO_13/LFA-Dorado-tema-global-1.3.tar.gz" -C "$STAGE/usr/share/plasma/look-and-feel"
+# Usar el layout completo de LFA AI OS (Linexin pantalla completa + macOS Dock + 3 widgets + Living Landscapes)
+cp "$ROOT/lfa-ai-os-desktop-layout.js" \
+   "$STAGE/usr/share/plasma/look-and-feel/org.lfa.dorado/contents/layouts/org.kde.plasma.desktop-layout.js"
+
+# Incluir plasmoids del escritorio (Linexin Launcher, macOS Dock, LFA Noticias)
+for pl in org.linexin.launcher com.github.mattanis.macosdock org.lfa.noticias; do
+  if [[ -d "$HOME/.local/share/plasma/plasmoids/$pl" ]]; then
+    cp -a "$HOME/.local/share/plasma/plasmoids/$pl" "$STAGE/usr/share/plasma/plasmoids/$pl"
+  fi
+done
 tar -xzf "$DORADO_13/LFA-Dorado-tema-plasma-1.3.tar.gz" -C "$STAGE/usr/share/plasma/desktoptheme"
 tar -xzf "$DORADO_13/LFA-Dorado-iconos-1.2.tar.gz" -C "$STAGE/usr/share/icons"
 tar -xzf "$DORADO_PKG/LFA-Dorado-bordes-de-ventana.tar.gz" -C "$STAGE/usr/share/aurorae/themes"
